@@ -15,6 +15,30 @@
 
  Запускаем два скрипта паралельно 
  #### [Публикатор](lab2NetworkPub.ipynb) - публикует пять сообщений брокеру раз в секунду, а потом отсылает сообщение на конец передачи
+
+```python
+import paho.mqtt.client as mqtt
+import time
+from datetime import datetime
+
+broker_url = "broker.hivemq.com"
+broker_port = 1883
+
+client = mqtt.Client()
+client.connect(broker_url, broker_port)
+
+for i in range(0,5):
+  strPayload = str(datetime.now())+" TestingPayload"+str(i)
+  client.publish(topic="ITMO/Student3/Value1", payload=strPayload, qos=1, retain=False)
+  print(str(datetime.now())+" Send payload")
+  time.sleep(1)
+
+strPayloadDisconnect = str(datetime.now())+" TestingPayloadDisconnect"+str(i)
+client.publish(topic="ITMO/Student3/Value1", payload=strPayloadDisconnect, qos=1, retain=False)
+print(str(datetime.now())+" Send payload Disconnect")
+     
+```
+
 ```log
 2023-02-14 15:28:25.441925 Send payload
 2023-02-14 15:28:26.443373 Send payload
@@ -24,6 +48,30 @@
 2023-02-14 15:28:30.450537 Send payload Disconnect 
 ```
  #### [Подписчик](lab2NetworkSub.ipynb) - получает сообщение через брокера от публикатора, получает 5 сообщений и сообщение о конце передаче(выходит из режима прослушивания)
+```python
+from paho.mqtt import client as mqtt_client
+import random
+import time
+from datetime import datetime
+
+broker_url = "broker.hivemq.com"
+broker_port = 1883
+
+def on_message(client, userdata, message):
+  print("Message Recieved: "+message.payload.decode())
+  if str(message.payload.decode()).find("TestingPayloadDisconnect") !=-1:
+    client.disconnect()
+
+
+client = mqtt.Client()
+client.on_message = on_message
+client.connect(broker_url, broker_port)
+print(str(datetime.now()))
+client.subscribe("ITMO/Student3/Value1", qos=2)
+
+client.loop_forever()
+client.disconnect
+```
 ```log
 Connected to MQTT Broker!
 2023-02-14 15:28:21.048714
@@ -49,6 +97,53 @@ Message Recieved: 2023-02-14 15:28:30.450182 TestingPayloadDisconnect4
 ---
 Следующим этапом мы прослушаем топики ITMO/Student(1-9)/Value3 и индивидуальные топики ITMO/Student3/Value(1-3)
 #### [Подписчик нескольких топиков](lab2NetworkSubTeach.ipynb) - Запустим скрипт прослушивания нескольких топиков одновременно, публикатором в данный момент является преподавательский генератор 
+```python
+from paho.mqtt import client as mqtt_client
+import paho.mqtt.client as mqtt
+import random
+import time
+from datetime import datetime
+     
+
+broker_url = "broker.hivemq.com"
+broker_port = 1883
+count = 0
+
+def on_message(client, userdata, message):
+  global count 
+  if "TestingPayloadDisconnect" in str(message.payload.decode()):
+    client.disconnect()
+    
+  if count == 15:
+    print("\n\tITMO/Student3/\t\tValue1\tValue2\tValue3")
+    count+=1
+
+  if count > 15:
+    if "ITMO/Student3/Value1" in str(message.topic):
+      print(f"{datetime.now()}\t|`{message.payload.decode()}`\t|\t|")
+    
+    if "ITMO/Student3/Value2" in str(message.topic):
+      print(f"{datetime.now()}\t|\t|`{message.payload.decode()}`\t|")
+      
+    if "ITMO/Student3/Value3" in str(message.topic):
+      print(f"{datetime.now()}\t|\t|\t|`{message.payload.decode()}`")
+  elif "Value3" in message.topic:
+    print(f"{datetime.now()} {message.topic}    {message.payload.decode()}")
+    count+=1
+   
+
+client = mqtt.Client()
+client.on_message = on_message
+client.connect(broker_url, broker_port)
+
+print(str(datetime.now()))
+for i in range(1,10):
+  client.subscribe("ITMO/Student"+str(i)+"/Value3",1)
+
+client.subscribe([("ITMO/Student3/Value1", 1),("ITMO/Student3/Value2", 1),("ITMO/Student3/Value3",1)])
+
+client.loop_forever()
+```
 ```log
 2023-02-15 14:51:11.198335
 2023-02-15 14:51:12.262758 ITMO/Student1/Value3    776
